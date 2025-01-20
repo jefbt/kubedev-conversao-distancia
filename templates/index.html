@@ -7,7 +7,7 @@
     <meta name="description" content="">
     <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
     <meta name="generator" content="Hugo 0.87.0">
-    <title>Conversão de Distância</title>
+    <title>Distance Converter</title>
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.1/examples/sticky-footer-navbar/">
 
@@ -29,6 +29,23 @@
                 font-size: 3.5rem;
             }
         }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .converter-box {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .server-info {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 
@@ -42,31 +59,33 @@
     </header>
     <!-- Begin page content -->
     <main class="flex-shrink-0">
-        <div class="container" style="padding: 60px 15px 0;">
-            <form class="row g-3" action="/" method="post">
-                <h1>Conversor de Distância</h1>
-                <div class="mb-3 row">
-                    <select class="form-select" aria-label="Default select example" id="selectTemp" name="selectTemp">
-                        <option selected value="1">Metro => Quilômetros</option>
-                        <option value="2">Quilômetros => Metro</option>
-                        <option value="3">Metro => Milhas</option>
-                        <option value="4">Milhas => Metro</option>
-                        <option value="5">Metro => Pés</option>
-                        <option value="6">Pés => Metro</option>
-                    </select>
-                </div>
-                <div class="mb-3 row">
-                    <label for="valorRef" class="form-label">Valor:</label>
-                    <input type="number" class="form-control" id="valorRef" name="valorRef">
-                </div>
-                <div>
-                    <button type="submit" class="btn btn-primary mb-3">Converter</button>
-                </div>
-            </form>
-            {% if conteudo is defined %}
-            <h3>Valor Convertido</h3>
-            O valor convertido pra {{ conteudo['unidade'] }} é igual a {{ conteudo['valor'] }}
-            {% endif %}
+        <div class="container">
+            <h1>Distance Converter</h1>
+            
+            <div class="converter-box">
+                <input type="number" id="fromValue" step="any">
+                <select id="fromUnit">
+                    <option value="meters">Meters</option>
+                    <option value="kilometers">Kilometers</option>
+                    <option value="miles">Miles</option>
+                    <option value="feet">Feet</option>
+                </select>
+                
+                <span>=</span>
+                
+                <input type="number" id="toValue" readonly>
+                <select id="toUnit">
+                    <option value="meters">Meters</option>
+                    <option value="kilometers">Kilometers</option>
+                    <option value="miles">Miles</option>
+                    <option value="feet">Feet</option>
+                </select>
+            </div>
+
+            <div class="server-info">
+                <p>Hostname: {{ hostname }}</p>
+                <p>IP Address: {{ ip_address }}</p>
+            </div>
         </div>
     </main>
     <footer class="footer mt-auto py-3 bg-light">
@@ -77,6 +96,97 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
         crossorigin="anonymous"></script>
+    <script>
+        // Initialize default selections with different units
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('fromUnit').value = 'meters';
+            document.getElementById('toUnit').value = 'feet';
+            convert();
+        });
+
+        function updateDropdowns(changedDropdownId) {
+            const fromUnit = document.getElementById('fromUnit');
+            const toUnit = document.getElementById('toUnit');
+            
+            if (changedDropdownId === 'fromUnit') {
+                // If the selected units are the same, swap the dropdowns
+                if (fromUnit.value === toUnit.value) {
+                    // Store the old unit value
+                    const previousToUnit = toUnit.value;
+                    
+                    // Find a different unit to select (the previous fromUnit value)
+                    const options = Array.from(toUnit.options);
+                    for (let option of options) {
+                        if (option.value !== fromUnit.value) {
+                            toUnit.value = option.value;
+                            break;
+                        }
+                    }
+                }
+            } else if (changedDropdownId === 'toUnit') {
+                // If the selected units are the same, swap the dropdowns
+                if (toUnit.value === fromUnit.value) {
+                    // Store the old unit value
+                    const previousFromUnit = fromUnit.value;
+                    
+                    // Find a different unit to select (the previous toUnit value)
+                    const options = Array.from(fromUnit.options);
+                    for (let option of options) {
+                        if (option.value !== toUnit.value) {
+                            fromUnit.value = option.value;
+                            break;
+                        }
+                    }
+                }
+            }
+            convert();
+        }
+
+        function convert() {
+            const fromValue = document.getElementById('fromValue').value;
+            const fromUnit = document.getElementById('fromUnit').value;
+            const toUnit = document.getElementById('toUnit').value;
+            
+            if (fromValue === '') {
+                document.getElementById('toValue').value = '';
+                return;
+            }
+
+            fetch('/convert', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    value: fromValue,
+                    from_unit: fromUnit,
+                    to_unit: toUnit
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('toValue').value = data.result;
+                } else {
+                    document.getElementById('toValue').value = 'Error';
+                }
+            })
+            .catch(error => {
+                document.getElementById('toValue').value = 'Error';
+            });
+        }
+
+        // Add event listeners for automatic conversion
+        document.getElementById('fromValue').addEventListener('input', convert);
+        document.getElementById('fromUnit').addEventListener('change', function(e) {
+            updateDropdowns('fromUnit');
+            convert();
+        });
+        document.getElementById('toUnit').addEventListener('change', function(e) {
+            updateDropdowns('toUnit');
+            convert();
+        });
+    </script>
 </body>
 
 </html>
